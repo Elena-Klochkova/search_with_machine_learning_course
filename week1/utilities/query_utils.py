@@ -149,7 +149,7 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
                 "query": {
                     "bool": {
                         "must": [
-
+                            
                         ],
                         "should":[ #
                             {
