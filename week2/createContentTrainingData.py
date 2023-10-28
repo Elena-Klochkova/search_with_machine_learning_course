@@ -5,6 +5,8 @@ from tqdm import tqdm
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import pandas as pd
+
 
 def transform_name(product_name):
     # IMPLEMENT
@@ -61,9 +63,25 @@ def _label_filename(filename):
 if __name__ == '__main__':
     files = glob.glob(f'{directory}/*.xml')
     print("Writing results to %s" % output_file)
+    count = dict()
+
     with multiprocessing.Pool() as p:
         all_labels = tqdm(p.imap(_label_filename, files), total=len(files))
+        for label_list in all_labels:
+            for (cat, name) in label_list:
+                if cat not in count:
+                    count[cat] = 0
+                count[cat] += 1
+
+    count = {k: v for k, v in count.items() if v >= 500}
+    count = set(list(count.keys()))
+
+    with multiprocessing.Pool() as p:
         with open(output_file, 'w') as output:
+            all_labels = tqdm(p.imap(_label_filename, files), total=len(files))
             for label_list in all_labels:
                 for (cat, name) in label_list:
-                    output.write(f'__label__{cat} {name}\n')
+                    print(cat, name)
+                    if cat in count:
+                        print('yes')
+                        output.write(f'__label__{cat} {name}\n')
