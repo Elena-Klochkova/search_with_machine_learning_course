@@ -10,8 +10,8 @@
           ]
         },
         "name_synonyms": {
-          "filter": "name_synonyms_filter",
-          "tokenizer": "whitespace"
+          "tokenizer": "standard",
+          "filter": ["stemmer", "name_synonyms_filter"]
         }
       },
       "tokenizer": {
@@ -30,8 +30,8 @@
           "catenate_all": true
         },
         "name_synonyms_filter": {
-          "type": "synonyms",
-          "synonym_path": "synonyms.csv" 
+          "type": "synonym",
+          "synonyms_path": "synonyms.csv"
         }
       }
     }
