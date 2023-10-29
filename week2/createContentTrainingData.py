@@ -81,7 +81,5 @@ if __name__ == '__main__':
             all_labels = tqdm(p.imap(_label_filename, files), total=len(files))
             for label_list in all_labels:
                 for (cat, name) in label_list:
-                    print(cat, name)
                     if cat in count:
-                        print('yes')
                         output.write(f'__label__{cat} {name}\n')
