@@ -108,6 +108,8 @@ if min_queries > 0:
 print('TEST category:')
 print(count_df[count_df['category'] == 'abcat0701001'])
 
+print(f"Number of unique categories: {queries_df['category'].nunique()}")
+
 # Create labels in fastText format.
 queries_df['label'] = '__label__' + queries_df['category']
 

@@ -12,11 +12,30 @@ import pandas as pd
 import fileinput
 import logging
 import sys
+import fasttext
+import nltk
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logging.basicConfig(format='%(levelname)s:%(message)s')
+model = fasttext.load_model('/workspace/search_with_machine_learning_course/week3/model_week3.bin')
+stemmer = nltk.stem.PorterStemmer()
+
+
+def normalize_query(query):
+    new_query = ''
+    for char in query:
+        if char.isalnum():
+            new_query += char.lower()
+        else:
+            new_query += ' '
+
+    new_query = (new_query.split())
+    res = [stemmer.stem(word) for word in new_query]
+    
+    return ' '.join(res)
+
 
 # expects clicks and impressions to be in the row
 def create_prior_queries_from_group(
@@ -49,9 +68,62 @@ def create_prior_queries(doc_ids, doc_id_weights,
     return click_prior_query
 
 
-# Hardcoded query here.  Better to use search templates or other query config.
+# Hardcoded query here. Better to use search templates or other query config.
 def create_query(user_query, click_prior_query, filters, sort="_score", sortDir="desc", size=10, source=None):
     name_field = source[0]
+    res = model.predict(normalize_query(user_query))
+    query_cats = [i.replace('__label__', '') for i in res[0]]
+    query_cats_probabilities = list(res[1])
+    cats = list(zip(query_cats, query_cats_probabilities))
+    must_clause = None
+    should_clause = None
+ 
+    # Adding a must clause only if the probability is high enough
+    # 1. if there is a top category with high probability
+    if cats[0][1] >= 0.6:
+        cat = cats[0][0]
+        print(f'Searching {user_query} in the category {cat}')
+        must_clause = {
+                        "match": {
+                            "categoryPathIds": cat
+                        }
+                    }
+        should_clause = {
+                    "match": {
+                        "categoryLeaf": {
+                            "query": ' '.join([cat[0] for cat in cats]),
+                            "boost": 2
+                        }
+                    }
+                }
+    # 2. if there are 2 or more categories with prob >= 0.3
+    else:
+        cats = [cat[0] for cat in cats if cat[1] >= 0.3]
+        if len(cats) >= 2:
+            print(f"Searching {user_query} in the categories {','.join(cats)}")
+            must_clause = {
+                            "bool": {
+                                "should": [
+                                ]
+                            }
+                        }
+            for cat in cats:
+                must_clause['bool']['should'].append(
+                            {
+                                "match": {
+                                    "categoryPathIds": cat
+                                }
+                            }
+                )
+            should_clause = {
+                                "match": {
+                                    "categoryLeaf": {
+                                        "query": ' '.join([cat[0] for cat in cats]),
+                                        "boost": 2
+                                    }
+                                }
+                            }
+
     query_obj = {
         "_source": source,
         'size': size,
@@ -170,6 +242,13 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
             }
         }
     }
+
+    if must_clause:
+        query_obj["query"]["function_score"]["query"]["bool"]["must"].append(must_clause)
+
+    if should_clause:
+        query_obj["query"]["function_score"]["query"]["bool"]["should"].append(should_clause)
+
     if click_prior_query is not None and click_prior_query != "":
         query_obj["query"]["function_score"]["query"]["bool"]["should"].append({
             "query_string": {
@@ -194,7 +273,13 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
     #### W3: create filters and boosts
     # Note: you may also want to modify the `create_query` method above
     name_field = "name.synonyms" if synonyms else "name"
-    query_obj = create_query(user_query, click_prior_query=None, filters=None, sort=sort, sortDir=sortDir, source=[name_field, "shortDescription"])
+    query_obj = create_query(
+        user_query, 
+        click_prior_query=None, 
+        filters=None, 
+        sort=sort, 
+        sortDir=sortDir, 
+        source=[name_field, "shortDescription", "categoryLeaf", "categoryPathIds"])
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
     print(query_obj)
