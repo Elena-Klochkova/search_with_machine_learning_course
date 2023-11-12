@@ -61,42 +61,42 @@ if [ "$ANNOTATE" != "--annotate" ]; then
     fi
   fi
 
-  if [ -f $QUERIES_JSON_FILE ]; then
-    echo ""
-    echo " Query file: $QUERIES_JSON_FILE"
-    curl -k -X PUT -u admin  "https://localhost:9200/bbuy_queries" -H 'Content-Type: application/json' -d "@$QUERIES_JSON_FILE"
-    if [ $? -ne 0 ] ; then
-      echo "Failed to create index with settings of $QUERIES_JSON_FILE"
-      exit 2
-    fi
-    if [ -f index_queries.py ]; then
-      echo "Indexing queries data and writing logs to $LOGS_DIR/index_queries.log"
-      nohup python index_queries.py -s "$DATASETS_DIR/train.csv" > "$LOGS_DIR/index_queries.log" &
-      if [ $? -ne 0 ] ; then
-        echo "Failed to index queries"
-        exit 2
-      fi
-    fi
-  fi
+  # if [ -f $QUERIES_JSON_FILE ]; then
+  #   echo ""
+  #   echo " Query file: $QUERIES_JSON_FILE"
+  #   curl -k -X PUT -u admin  "https://localhost:9200/bbuy_queries" -H 'Content-Type: application/json' -d "@$QUERIES_JSON_FILE"
+  #   if [ $? -ne 0 ] ; then
+  #     echo "Failed to create index with settings of $QUERIES_JSON_FILE"
+  #     exit 2
+  #   fi
+  #   if [ -f index_queries.py ]; then
+  #     echo "Indexing queries data and writing logs to $LOGS_DIR/index_queries.log"
+  #     nohup python index_queries.py -s "$DATASETS_DIR/train.csv" > "$LOGS_DIR/index_queries.log" &
+  #     if [ $? -ne 0 ] ; then
+  #       echo "Failed to index queries"
+  #       exit 2
+  #     fi
+  #   fi
+  # fi
 fi
 
-if [ "$ANNOTATE" == "--annotate" ]; then
-  echo "Creating Annotations index"
-  if [ -f $ANNOTATIONS_JSON_FILE ]; then
-    echo " Product Annotations file: $ANNOTATIONS_JSON_FILE"
-    curl -k -X PUT -u admin  "https://localhost:9200/bbuy_annotations" -H 'Content-Type: application/json' -d "@$ANNOTATIONS_JSON_FILE"
-    if [ $? -ne 0 ] ; then
-      echo "Failed to create index with settings of $ANNOTATIONS_JSON_FILE"
-      exit 2
-    fi
-    echo ""
-    if [ -f index_products.py ]; then
-      echo "Indexing product annotations data in $DATASETS_DIR/product_data/products and writing logs to $LOGS_DIR/index_annotations.log"
-      nohup python index_products.py "--synonyms" "--reduced" --index_name "bbuy_annotations" -s "$DATASETS_DIR/product_data/products" > "$LOGS_DIR/index_annotations.log" &
-      if [ $? -ne 0 ] ; then
-        echo "Failed to index product annotations"
-        exit 2
-      fi
-    fi
-  fi
-fi
+# if [ "$ANNOTATE" == "--annotate" ]; then
+#   echo "Creating Annotations index"
+#   if [ -f $ANNOTATIONS_JSON_FILE ]; then
+#     echo " Product Annotations file: $ANNOTATIONS_JSON_FILE"
+#     curl -k -X PUT -u admin  "https://localhost:9200/bbuy_annotations" -H 'Content-Type: application/json' -d "@$ANNOTATIONS_JSON_FILE"
+#     if [ $? -ne 0 ] ; then
+#       echo "Failed to create index with settings of $ANNOTATIONS_JSON_FILE"
+#       exit 2
+#     fi
+#     echo ""
+#     if [ -f index_products.py ]; then
+#       echo "Indexing product annotations data in $DATASETS_DIR/product_data/products and writing logs to $LOGS_DIR/index_annotations.log"
+#       nohup python index_products.py "--synonyms" "--reduced" --index_name "bbuy_annotations" -s "$DATASETS_DIR/product_data/products" > "$LOGS_DIR/index_annotations.log" &
+#       if [ $? -ne 0 ] ; then
+#         echo "Failed to index product annotations"
+#         exit 2
+#       fi
+#     fi
+#   fi
+# fi

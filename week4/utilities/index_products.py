@@ -146,10 +146,12 @@ def index_file(file, index_name, reduced=False):
             for pos, doc in list(enumerate(docs)):
                 doc['_source'].update({'embedding': list(embeddings[pos])})
                 docs[pos] = doc
+            logger.info(docs[0])
             bulk(client, docs, request_timeout=60)
             logger.info(f'{docs_indexed} documents indexed')
             docs = []
             names = []
+
     if len(docs) > 0:
         embeddings = model.encode(names)
         for pos, doc in list(enumerate(docs)):

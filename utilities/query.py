@@ -23,6 +23,11 @@ model = fasttext.load_model('/workspace/search_with_machine_learning_course/week
 stemmer = nltk.stem.PorterStemmer()
 
 
+from sentence_transformers import SentenceTransformer
+logger.info("Creating Embeddings Model")
+emb_model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+
+
 def normalize_query(query):
     new_query = ''
     for char in query:
@@ -67,6 +72,21 @@ def create_prior_queries(doc_ids, doc_id_weights,
                 pass  # nothing to do in this case, it just means we can't find priors for this doc
     return click_prior_query
 
+
+def create_vector_query(user_query, res_size):
+    embedding = emb_model.encode([user_query])[0]
+
+    return {
+        "size": res_size,
+        "query": {
+            "knn": {
+            "embedding": {
+                "vector": embedding,
+                "k": 3
+                }
+            }
+        }
+    }
 
 # Hardcoded query here. Better to use search templates or other query config.
 def create_query(user_query, click_prior_query, filters, sort="_score", sortDir="desc", size=10, source=None):
@@ -268,21 +288,28 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
     return query_obj
 
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False):
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, vector_search=False):
     #### W3: classify the query
     #### W3: create filters and boosts
     # Note: you may also want to modify the `create_query` method above
-    name_field = "name.synonyms" if synonyms else "name"
-    query_obj = create_query(
-        user_query, 
-        click_prior_query=None, 
-        filters=None, 
-        sort=sort, 
-        sortDir=sortDir, 
-        source=[name_field, "shortDescription", "categoryLeaf", "categoryPathIds"])
+    if vector_search:
+        logging.info('Performing vector search')
+        query_obj = create_vector_query(
+            user_query, 
+            res_size=3
+        )
+    else:
+        name_field = "name.synonyms" if synonyms else "name"
+        query_obj = create_query(
+            user_query, 
+            click_prior_query=None, 
+            filters=None, 
+            sort=sort, 
+            sortDir=sortDir, 
+            source=[name_field, "shortDescription", "categoryLeaf", "categoryPathIds"]
+        )
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
-    print(query_obj)
     if response and response['hits']['hits'] and len(response['hits']['hits']) > 0:
         hits = response['hits']['hits']
         print(json.dumps(response, indent=2))
@@ -302,8 +329,10 @@ if __name__ == "__main__":
                          help='The OpenSearch port')
     general.add_argument('--user',
                          help='The OpenSearch admin.  If this is set, the program will prompt for password too. If not set, use default of admin/admin')
-    general.add_argument('--synonyms', type=int, default=0,
+    general.add_argument('--synonyms',
                          help='Whether to query name.synonyms field instead of name')
+    general.add_argument('--vector',
+                         help='Whether to use vector query')
 
     args = parser.parse_args()
 
@@ -316,6 +345,10 @@ if __name__ == "__main__":
     if args.user:
         password = getpass()
         auth = (args.user, password)
+
+    vector_search = False
+    if args.vector:
+        vector_search = True
 
     synonyms = False
     if args.synonyms == 1:
@@ -341,7 +374,13 @@ if __name__ == "__main__":
         query = line.rstrip()
         if query == "Exit":
             break
-        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms)
+        search(
+            client=opensearch, 
+            user_query=query, 
+            index=index_name, 
+            synonyms=synonyms, 
+            vector_search=vector_search
+        )
 
         print(query_prompt)
 
